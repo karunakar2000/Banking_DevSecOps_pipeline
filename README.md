@@ -56,7 +56,7 @@ Secrets: Vault or Secrets manager (not in this demo)
 └── README.md
 ```
 
-## Quick start (local / dev)
+# Quick start (local / dev)
  This repo is a demo — it assumes you have Docker, kubectl, helm installed and access to a k8s cluster.
 
 1. Clone:
@@ -80,7 +80,7 @@ Secrets: Vault or Secrets manager (not in this demo)
     npm test
 
 
-## CI/CD (Jenkins) — what it does
+# CI/CD (Jenkins) — what it does
 The 'jenkins/Jenkinsfile' in this repo demonstrates a multistage pipeline:
 
 1. Checkout → run unit tests  
@@ -95,14 +95,14 @@ The 'jenkins/Jenkinsfile' in this repo demonstrates a multistage pipeline:
 
 Tip:- The pipeline uses credentials stored in Jenkins (never hard-coded).
 
-## Security & DevSecOps
-- **Code quality:** SonarQube configured; pipeline aborts on quality gate failure.  
-- **Image scanning:** Trivy run against image; policy configurable in security/.  
-- **Artifact management:** JFrog Artifactory holds versioned artifacts; promotion is manual/automated depending on env.  
-- **Secrets:** Use a secrets manager (HashiCorp Vault, AWS Secrets Manager, or Azure Key Vault). In this demo we show placeholders and avoid including real secrets.  
-- **Network:** k8s network policies and Traefik ingress with TLS for production workloads.
+# Security & DevSecOps
+- Code quality: SonarQube configured; pipeline aborts on quality gate failure.  
+- Image scanning: Trivy run against image; policy configurable in security/.  
+- Artifact management: JFrog Artifactory holds versioned artifacts; promotion is manual/automated depending on env.  
+- Secrets: Use a secrets manager (HashiCorp Vault, AWS Secrets Manager, or Azure Key Vault). In this demo we show placeholders and  avoid including real secrets.  
+- Network: k8s network policies and Traefik ingress with TLS for production workloads.
 
-## Terraform notes
+# Terraform notes
 - Terraform modules live in `terraform/`.  
 - Use a remote backend (S3+DynamoDB or Azure Storage with blob + lease) in real setups — local state only for demos.  
 - Example usage:
@@ -112,7 +112,7 @@ terraform init
 terraform plan -var-file=dev.tfvars
 terraform apply -auto-approve -var-file=dev.tfvars
 ```
-- Always `terraform plan` and review before apply.
+- Always 'terraform plan' and review before apply.
 
 ## Ansible notes
 - `ansible/playbook.yml` bootstraps servers (install docker, kubelet, join cluster) or configures app nodes.  
@@ -155,9 +155,9 @@ It mirrors the kind of work I do daily at DTB: improving release reliability, re
 
 ## Contributing / Notes
 - This repo intentionally keeps secrets out. Use Jenkins credentials and secrets managers.  
-- Replace `placeholder` values with your own registry, artifactory URLs, and cloud accounts.  
+- Replace 'placeholder' values with your own registry, artifactory URLs, and cloud accounts.  
 - Use this as a starting point; each org will adapt modules to fit policy and compliance.
 
 ## Contact
 If you want to discuss the setup or see a short screen recording of the pipeline running, ping me at:  
-`github.com/<yourusername>` — I’m happy to walk through it.
+'github.com/<yourusername>' —> I’m happy to walk through it.
