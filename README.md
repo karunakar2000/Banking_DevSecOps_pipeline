@@ -57,31 +57,31 @@ Secrets: Vault or Secrets manager (not in this demo)
 ```
 
 ## Quick start (local / dev)
-> This repo is a demo — it assumes you have Docker, kubectl, helm installed and access to a k8s cluster.
+ This repo is a demo — it assumes you have Docker, kubectl, helm installed and access to a k8s cluster.
 
 1. Clone:
-```bash
-git clone https://github.com/<yourusername>/banking-devsecops-pipeline.git
-cd banking-devsecops-pipeline
-```
+   bash
+    git clone https://github.com/<yourusername>/banking-devsecops-pipeline.git
+    cd banking-devsecops-pipeline
+
 
 2. Build and run the sample app locally:
-```bash
-cd app
-docker build -t <your-dockerhub-username>/bank-app:dev .
-docker run -p 8080:8080 <your-dockerhub-username>/bank-app:dev
-# check http://localhost:8080
-```
+   bash
+    cd app
+    docker build -t <your-dockerhub-username>/bank-app:dev .
+    docker run -p 8080:8080 <your-dockerhub-username>/bank-app:dev
+    # check http://localhost:8080
+
 
 3. (Optional) Run unit tests:
-```bash
-# Node example
-npm install
-npm test
-```
+    bash
+    # Node example
+    npm install
+    npm test
+
 
 ## CI/CD (Jenkins) — what it does
-The `jenkins/Jenkinsfile` in this repo demonstrates a multistage pipeline:
+The 'jenkins/Jenkinsfile' in this repo demonstrates a multistage pipeline:
 
 1. Checkout → run unit tests  
 2. SonarQube scan (quality gates)  
@@ -93,11 +93,11 @@ The `jenkins/Jenkinsfile` in this repo demonstrates a multistage pipeline:
 8. Helm deploy to k8s cluster  
 9. Post-deploy smoke tests and notify (Slack/email)
 
-> Tip: The pipeline uses credentials stored in Jenkins (never hard-coded).
+Tip:- The pipeline uses credentials stored in Jenkins (never hard-coded).
 
 ## Security & DevSecOps
 - **Code quality:** SonarQube configured; pipeline aborts on quality gate failure.  
-- **Image scanning:** Trivy run against image; policy configurable in `security/`.  
+- **Image scanning:** Trivy run against image; policy configurable in security/.  
 - **Artifact management:** JFrog Artifactory holds versioned artifacts; promotion is manual/automated depending on env.  
 - **Secrets:** Use a secrets manager (HashiCorp Vault, AWS Secrets Manager, or Azure Key Vault). In this demo we show placeholders and avoid including real secrets.  
 - **Network:** k8s network policies and Traefik ingress with TLS for production workloads.
