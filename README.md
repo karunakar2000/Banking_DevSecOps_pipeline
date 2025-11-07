@@ -160,4 +160,4 @@ It mirrors the kind of work I do daily at DTB: improving release reliability, re
 
 ## Contact
 If you want to discuss the setup or see a short screen recording of the pipeline running, ping me at:  
-'github.com/<yourusername>' —> I’m happy to walk through it.
+'github.com' —> I’m happy to walk through it.
