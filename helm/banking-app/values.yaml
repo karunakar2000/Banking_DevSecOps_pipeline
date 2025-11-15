@@ -1,0 +1,49 @@
+# Image settings – overridden by Azure DevOps CD pipeline
+image:
+  repository: "youracrname.azurecr.io/banking-online"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Application settings
+app:
+  name: "banking-online"
+  port: 8080
+  envName: "local"   # overridden with dev/uat/prod
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+# Kubernetes service
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Ingress (Traefik)
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: "banking-dev.example.com"
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # Example:
+  # tls:
+  #   - secretName: banking-dev-tls
+  #     hosts:
+  #       - banking-dev.example.com
+
+# Simple config for the app
+config:
+  SPRING_PROFILES_ACTIVE: "default"
+  JAVA_OPTS: "-Xms256m -Xmx512m"

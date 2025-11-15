@@ -240,11 +240,40 @@ Security is integrated across the pipeline, not an afterthought:
 
 ---
 
+This project demonstrates an end-to-end automated deployment platform designed for the DTB Bank Online Banking System.
+The solution follows modern DevSecOps and GitOps principles to deliver secure, scalable, and compliant workloads across cloud platforms.
+
+| Capability        | Tools Implemented                                             |
+| ----------------- | ------------------------------------------------------------- |
+| CI Automation     | Azure DevOps                                                  |
+| CD to AKS         | Helm + Kubernetes                                             |
+| GitOps            | Argo CD                                                       |
+| Security          | SonarQube (SAST), Trivy (image scan), Vault/JFrog credentials |
+| Containerization  | Docker                                                        |
+| Observability     | Prometheus + Grafana (later phase)                            |
+| Cloud Providers   | Azure + AWS (artifact storage and DR strategy)                |
+| Ingress / Routing | Traefik Ingress Controller                                    |
+
+
+Developer Commit → Azure DevOps CI
+  → SAST with SonarQube
+  → Build & JUnit test with Maven
+  → Container image build
+  → Trivy image vulnerability scanning
+  → Publish image to Azure Container Registry (ACR)
+  → Trigger CD Pipeline
+      → Helm upgrade on AKS
+      → Commit new image tag to Git repo
+      → Argo CD sync (GitOps)
+      → Traefik exposes application securely
+
+
+---
 ## 8. How to run this project (high-level)
 
 This project can be deployed end-to-end across Azure and AKS using Azure DevOps pipelines with Helm and Argo CD. The high level steps to get started are:
 
-1. **Clone the repo**
+**Clone the repo**
 
    ```bash
    git clone https://github.com/karunakar2000/Banking-ado-k8s-argocd-project.git

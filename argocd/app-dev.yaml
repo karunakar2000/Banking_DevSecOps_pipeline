@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dtb-banking-dev
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: 'https://github.com/<your-user>/banking-ado-k8s-argocd.git'
+    targetRevision: main
+    path: helm/banking-app
+    helm:
+      valueFiles:
+        - values-dev.yaml
+      parameters:
+        - name: image.tag
+          value: "dev"
+
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: dev-banking
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,37 @@
+# Production environment overrides for DTB Bank application (AKS Prod)
+
+image:
+  repository: "youracrname.azurecr.io/dtb-banking-api"
+  tag: "prod"
+  pullPolicy: IfNotPresent
+
+app:
+  name: "dtb-banking-api"
+  port: 8080
+  envName: "prod"
+
+replicaCount: 3
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: "online.dtb-bank.com"
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # tls:
+  #   - secretName: dtb-prod-tls
+  #     hosts:
+  #       - online.dtb-bank.com
+
+config:
+  SPRING_PROFILES_ACTIVE: "prod"
+  JAVA_OPTS: "-Xms512m -Xmx1024m"

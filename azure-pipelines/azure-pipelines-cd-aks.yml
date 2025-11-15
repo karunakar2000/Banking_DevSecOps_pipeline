@@ -1,0 +1,165 @@
+# azure-pipelines/azure-pipelines-cd-aks.yml
+
+# This pipeline is for CD to AKS only.
+# You can trigger it manually or from the CI pipeline via pipeline resources.
+
+trigger: none   # Run manually or as a release-style pipeline
+
+# Optional: enable multi-stage YAML releases from CI pipeline
+# resources:
+#   pipelines:
+#   - pipeline: ci_pipeline
+#     project: DTB-Banking
+#     source: banking-ado-k8s-argocd-CI
+#     trigger:
+#       branches:
+#         include:
+#           - main
+#           - development
+
+pool:
+  name: LinuxAgentPool
+
+variables:
+  - group: DEV        # contains ACR, AKS, etc.
+
+  - name: appName
+    value: banking-petclinic
+  - name: dockerImageName
+    value: banking-petclinic
+  - name: acrLoginServer
+    value: youracrname.azurecr.io
+  - name: helmChartPath
+    value: helm/banking-app
+  - name: helmReleaseBase
+    value: banking-app
+  - name: kubernetesServiceConnection
+    value: aks-service-connection   # change to your K8s service connection
+
+  # By default deploys the BuildId image. You can override this via runtime variable.
+  - name: imageTag
+    value: $(Build.BuildId)
+
+stages:
+  # -------------------------------------------------------------------------
+  # 1. Deploy to Dev AKS
+  # -------------------------------------------------------------------------
+  - stage: Deploy_Dev
+    displayName: "Deploy to AKS - Dev"
+    jobs:
+      - deployment: Deploy_Dev_AKS
+        displayName: "Helm deploy to Dev"
+        environment: "AKS-DEV"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: Kubernetes@1
+                  displayName: "Helm upgrade/install - Dev"
+                  inputs:
+                    connectionType: "KubernetesServiceConnection"
+                    kubernetesServiceEndpoint: "$(kubernetesServiceConnection)"
+                    namespace: "dev-banking"
+                    command: "helm"
+                    arguments: >
+                      upgrade --install $(helmReleaseBase)-dev $(helmChartPath)
+                      --namespace dev-banking
+                      --create-namespace
+                      --set image.repository=$(acrLoginServer)/$(dockerImageName)
+                      --set image.tag=$(imageTag)
+                      --set ingress.enabled=true
+                      --set ingress.className=traefik
+                      --set app.envName=dev
+
+                # Simple smoke test
+                - script: |
+                    echo "Waiting for pods in dev-banking..."
+                    kubectl get pods -n dev-banking
+                  displayName: "Check pods in Dev"
+                  env:
+                    KUBECONFIG: /tmp/kubeconfig
+
+  # -------------------------------------------------------------------------
+  # 2. Deploy to UAT AKS (with approval)
+  # -------------------------------------------------------------------------
+  - stage: Deploy_UAT
+    displayName: "Deploy to AKS - UAT"
+    dependsOn: Deploy_Dev
+    condition: succeeded()
+    jobs:
+      - deployment: Deploy_UAT_AKS
+        displayName: "Helm deploy to UAT"
+        environment: "AKS-UAT"       # Add approvals on this environment in ADO if needed
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: Kubernetes@1
+                  displayName: "Helm upgrade/install - UAT"
+                  inputs:
+                    connectionType: "KubernetesServiceConnection"
+                    kubernetesServiceEndpoint: "$(kubernetesServiceConnection)"
+                    namespace: "uat-banking"
+                    command: "helm"
+                    arguments: >
+                      upgrade --install $(helmReleaseBase)-uat $(helmChartPath)
+                      --namespace uat-banking
+                      --create-namespace
+                      --set image.repository=$(acrLoginServer)/$(dockerImageName)
+                      --set image.tag=$(imageTag)
+                      --set ingress.enabled=true
+                      --set ingress.className=traefik
+                      --set app.envName=uat
+
+
+                - script: |
+                    echo "Waiting for pods in uat-banking..."
+                    kubectl get pods -n uat-banking
+                  displayName: "Check pods in UAT"
+                  env:
+                    KUBECONFIG: /tmp/kubeconfig
+
+  # -------------------------------------------------------------------------
+  # 3. Deploy to Prod AKS (with stricter approval)
+  # -------------------------------------------------------------------------
+  - stage: Deploy_Prod
+    displayName: "Deploy to AKS - Prod"
+    dependsOn: Deploy_UAT
+    condition: succeeded()
+    jobs:
+      - deployment: Deploy_Prod_AKS
+        displayName: "Helm deploy to Prod"
+        environment: "AKS-PROD"      # Configure manual approvals in ADO
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: Kubernetes@1
+                  displayName: "Helm upgrade/install - Prod"
+                  inputs:
+                    connectionType: "KubernetesServiceConnection"
+                    kubernetesServiceEndpoint: "$(kubernetesServiceConnection)"
+                    namespace: "prod-banking"
+                    command: "helm"
+                    arguments: >
+                      upgrade --install $(helmReleaseBase)-prod $(helmChartPath)
+                      --namespace prod-banking
+                      --create-namespace
+                      --set image.repository=$(acrLoginServer)/$(dockerImageName)
+                      --set image.tag=$(imageTag)
+                      --set ingress.enabled=true
+                      --set ingress.className=traefik
+                      --set app.envName=prod
+
+                - script: |
+                    echo "Waiting for pods in prod-banking..."
+                    kubectl get pods -n prod-banking
+                  displayName: "Check pods in Prod"
+                  env:
+                    KUBECONFIG: /tmp/kubeconfig

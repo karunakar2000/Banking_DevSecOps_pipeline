@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dtb-banking-uat
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: 'https://github.com/<your-user>/banking-ado-k8s-argocd.git'
+    targetRevision: main
+    path: helm/banking-app
+    helm:
+      valueFiles:
+        - values-uat.yaml
+      parameters:
+        - name: image.tag
+          value: "uat"
+
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: uat-banking
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

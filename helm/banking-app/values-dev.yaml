@@ -1,0 +1,39 @@
+# Dev environment overrides for DTB Bank application (AKS Dev)
+
+image:
+  # Overridden by Azure DevOps CD pipeline
+  repository: "youracrname.azurecr.io/dtb-banking-api"
+  tag: "dev"
+  pullPolicy: IfNotPresent
+
+app:
+  name: "dtb-banking-api"
+  port: 8080
+  envName: "dev"
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: "dtb-dev.yourbank.com"
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # Example if you add TLS later:
+  # tls:
+  #   - secretName: dtb-dev-tls
+  #     hosts:
+  #       - dtb-dev.yourbank.com
+
+config:
+  SPRING_PROFILES_ACTIVE: "dev"
+  JAVA_OPTS: "-Xms256m -Xmx512m"

@@ -1,0 +1,37 @@
+# UAT environment overrides for DTB Bank application (AKS UAT)
+
+image:
+  repository: "youracrname.azurecr.io/dtb-banking-api"
+  tag: "uat"
+  pullPolicy: IfNotPresent
+
+app:
+  name: "dtb-banking-api"
+  port: 8080
+  envName: "uat"
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: "dtb-uat.yourbank.com"
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # tls:
+  #   - secretName: dtb-uat-tls
+  #     hosts:
+  #       - dtb-uat.yourbank.com
+
+config:
+  SPRING_PROFILES_ACTIVE: "uat"
+  JAVA_OPTS: "-Xms256m -Xmx512m"

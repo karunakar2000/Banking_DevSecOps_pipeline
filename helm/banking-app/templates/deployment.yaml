@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "banking-app.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "banking-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: banking-platform
+    app.kubernetes.io/managed-by: Helm
+    env: {{ .Values.app.envName | quote }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "banking-app.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "banking-app.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        env: {{ .Values.app.envName | quote }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.port }}
+              protocol: TCP
+          env:
+            - name: BANKING_PROFILES_ACTIVE
+              value: {{ .Values.config.BANKING_PROFILES_ACTIVE | quote }}
+            - name: JAVA_OPTS
+              value: {{ .Values.config.JAVA_OPTS | quote }}
+            - name: APP_ENV
+              value: {{ .Values.app.envName | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

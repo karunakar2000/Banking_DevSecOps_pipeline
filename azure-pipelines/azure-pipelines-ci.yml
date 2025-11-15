@@ -1,0 +1,332 @@
+# azure-pipelines/azure-pipelines-ci.yml
+
+trigger:
+  branches:
+    include:
+      - development
+      - main
+      - feature/*
+  paths:
+    include:
+      - app/*
+      - azure-pipelines/*
+      - helm/*
+      - k8s/*
+      - security/*
+      - infra/*
+    exclude:
+
+
+pool:
+  name: LinuxAgentPool
+  demands:
+    - Java -equals Yes
+    - Maven -equals Yes
+    - Docker -equals Yes
+
+variables:
+  # Variable group with things like SONAR_TOKEN, JFrog, ACR DockerHub creds
+  - group: DEV
+
+  # Global variables for this project
+  - name: appName
+    value: banking-online
+  - name: dockerImageName
+    value: banking-online
+  - name: acrName
+    value: youracrname        # e.g. dtbdevsecopsacr
+  - name: acrLoginServer
+    value: youracrname.azurecr.io
+  - name: dockerHubRepo
+    value: k*********r/devsecops-banking
+  - name: sonarServiceConnection
+    value: sonarqube-service-connection
+  - name: jfrogServerId
+    value: jfrog-service-connection
+  - name: artifactName
+    value: drop
+
+  # Just for readability in logs
+  - name: imageTag
+    value: $(build.BuildId)
+
+stages:
+  # -------------------------------------------------------------------------
+  # 1. Check agent tools (Terraform, Packer, Docker, Trivy, etc.)
+  # -------------------------------------------------------------------------
+  - stage: Tools_Check
+    displayName: "Check Agent & Tooling"
+    jobs:
+      - job: tools_check
+        displayName: "Verify CLI tools"
+        timeoutInMinutes: 5
+        steps:
+          - script: |
+              echo "Java version:"
+              java -version
+              echo "Maven version:"
+              mvn -version
+              echo "Terraform version:"
+              terraform version || echo "Terraform not installed"
+              echo "Packer version:"
+              packer version || echo "Packer not installed"
+              echo "Docker version:"
+              docker version
+              echo "Trivy version:"
+              trivy --version || echo "Trivy not installed"
+            displayName: "Print tools versions"
+
+  # -------------------------------------------------------------------------
+  # 2. SAST with SonarQube (Dev branch only)
+  # -------------------------------------------------------------------------
+  - stage: SAST_SonarQube
+    displayName: "SAST: SonarQube Analysis"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/development'))
+    jobs:
+      - job: sonar_analysis
+        displayName: "Run SonarQube Maven analysis"
+        timeoutInMinutes: 15
+        steps:
+          - task: SonarQubePrepare@7
+            displayName: "Prepare SonarQube configuration"
+            inputs:
+              SonarQube: $(sonarServiceConnection)
+              scannerMode: "Other"
+              projectKey: "$(appName)"
+              projectName: "$(appName)"
+              projectVersion: "$(Build.BuildId)"
+
+          - task: Maven@4
+            displayName: "Maven build with SonarQube"
+            inputs:
+              mavenPomFile: "app/pom.xml"
+              goals: "clean verify"
+              publishJUnitResults: true
+              testResultsFiles: "**/surefire-reports/TEST-*.xml"
+              javaHomeOption: "JDKVersion"
+              mavenVersionOption: "Default"
+              sonarQubeRunAnalysis: true
+              sqMavenPluginVersionChoice: "latest"
+
+          - task: SonarQubePublish@7
+            displayName: "Publish SonarQube quality gate"
+            inputs:
+              pollingTimeoutSec: "300"
+
+          # Optional build breaker plugin (if configured in DevOps)
+          - task: sonar-buildbreaker@9
+            displayName: "Break build on failed quality gate"
+            inputs:
+              SonarQube: $(sonarServiceConnection)
+
+  # -------------------------------------------------------------------------
+  # 3. Build JAR & publish to JFrog + Azure DevOps artifacts
+  # -------------------------------------------------------------------------
+  - stage: Build_And_Publish
+    displayName: "Build JAR & Publish Artifacts"
+    dependsOn:
+      - Tools_Check
+    jobs:
+      - job: build_job
+        displayName: "Maven build & artifact packaging"
+        timeoutInMinutes: 15
+        steps:
+          - checkout: self
+            clean: true
+
+          # Set version with BuildId
+          - script: |
+              cd app
+              mvn versions:set -DnewVersion=Dev-4.0.$(Build.BuildId)
+            displayName: "Set Maven build version"
+
+          - script: |
+              cd app
+              mvn -DskipTests=true clean package install
+              ls -al target
+            displayName: "Build JAR with Maven"
+
+          - script: |
+              cd app
+              mvn -DskipTests=true deploy
+            displayName: "Deploy JAR to JFrog Artifactory"
+            continueOnError: true   # Do not break pipeline on Artifactory issues
+
+          # Copy packaged JAR and publish as Azure DevOps artifact
+          - script: |
+              cd app/target
+              ls -al
+              # Adjust artifact name if needed
+              JAR_NAME=$(ls *.jar | head -1)
+              echo "Using JAR: $JAR_NAME"
+              cp "$JAR_NAME" $(Build.ArtifactStagingDirectory)/$(appName)-$(Build.BuildId).jar
+            displayName: "Stage JAR artifact"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish JAR as build artifact"
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+              ArtifactName: "$(artifactName)"
+              publishLocation: "Container"
+
+  # -------------------------------------------------------------------------
+  # 4. Optional: upload JAR to Azure Blob and AWS S3 (Dev only)
+  # -------------------------------------------------------------------------
+  - stage: Distribute_JAR
+    displayName: "Distribute JAR to Azure Blob & S3"
+    dependsOn: Build_And_Publish
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/development'))
+    jobs:
+      - job: upload_to_azure_blob
+        displayName: "Upload artifact to Azure Blob"
+        timeoutInMinutes: 10
+        steps:
+          - checkout: none
+          - download: current
+            artifact: $(artifactName)
+
+          - task: AzureCLI@2
+            displayName: "Upload JAR to Azure Blob"
+            inputs:
+              azureSubscription: "azure-service-connection"   # change to your connection
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                az storage blob upload \
+                  --account-name <your_storage_account> \
+                  --container-name artifacts \
+                  --file "$(Pipeline.Workspace)/$(artifactName)/$(appName)-$(Build.BuildId).jar" \
+                  --name "$(appName)-$(Build.BuildId).jar"
+
+      - job: upload_to_s3
+        displayName: "Upload artifact to AWS S3"
+        dependsOn: upload_to_azure_blob
+        condition: always()
+        timeoutInMinutes: 10
+        steps:
+          - checkout: none
+          - download: current
+            artifact: $(artifactName)
+
+          - task: S3Upload@1
+            displayName: "Upload JAR to AWS S3"
+            inputs:
+              awsCredentials: "aws-service-connection"     # change to your connection
+              regionName: "us-east-1"
+              bucketName: "devsecops-artifacts-banking"    # change bucket
+              sourceFolder: "$(Pipeline.Workspace)/$(artifactName)"
+              globExpressions: "*.jar"
+
+  # -------------------------------------------------------------------------
+  # 5. Docker build, local test & Trivy scan
+  # -------------------------------------------------------------------------
+  - stage: Docker_Build_And_Scan
+    displayName: "Docker Build & Trivy Scan"
+    dependsOn: Build_And_Publish
+    jobs:
+      - job: docker_build_scan
+        displayName: "Build image and scan with Trivy"
+        timeoutInMinutes: 20
+        steps:
+          - checkout: self
+
+          - script: |
+              cd app
+              docker build -t $(dockerImageName):$(imageTag) -f Dockerfile .
+              docker images | head
+            displayName: "Build local Docker image"
+
+          - script: |
+              docker stop banking-ci-test || true
+              docker rm banking-ci-test || true
+            displayName: "Clean old container"
+            continueOnError: true
+
+          - script: |
+              docker run -d --rm --name banking-ci-test -p 8080:8080 $(dockerImageName):$(imageTag)
+              sleep 15
+              curl -I http://localhost:8080 || echo "App not responding yet"
+            displayName: "Smoke test container"
+            continueOnError: true
+
+          - script: |
+              mkdir -p trivy-reports
+              trivy image \
+                --exit-code 0 \
+                --severity LOW,MEDIUM \
+                --format template \
+                --template "@security/trivy/junit.tpl" \
+                -o trivy-reports/junit-low-med.xml \
+                $(dockerImageName):$(imageTag)
+
+              trivy image \
+                --exit-code 0 \
+                --severity HIGH,CRITICAL \
+                --format template \
+                --template "@security/trivy/junit.tpl" \
+                -o trivy-reports/junit-high-crit.xml \
+                $(dockerImageName):$(imageTag)
+            displayName: "Run Trivy image scans"
+
+          - task: PublishTestResults@2
+            displayName: "Publish Trivy Low/Medium results"
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "trivy-reports/junit-low-med.xml"
+              mergeTestResults: true
+              failTaskOnFailedTests: false
+              testRunTitle: "Trivy - Low/Medium vulnerabilities"
+            condition: always()
+
+          - task: PublishTestResults@2
+            displayName: "Publish Trivy High/Critical results"
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "trivy-reports/junit-high-crit.xml"
+              mergeTestResults: true
+              failTaskOnFailedTests: false
+              testRunTitle: "Trivy - High/Critical vulnerabilities"
+            condition: always()
+
+  # -------------------------------------------------------------------------
+  # 6. Push images to ACR and DockerHub
+  # -------------------------------------------------------------------------
+  - stage: Push_Images
+    displayName: "Push Docker Image to ACR & DockerHub"
+    dependsOn: Docker_Build_And_Scan
+    jobs:
+      - job: push_to_acr
+        displayName: "Push image to Azure ACR"
+        steps:
+          - checkout: none
+
+          - task: AzureCLI@2
+            displayName: "Login to ACR"
+            inputs:
+              azureSubscription: "azure-service-connection"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                az acr login --name $(acrName)
+
+          - script: |
+              docker tag $(dockerImageName):$(imageTag) $(acrLoginServer)/$(dockerImageName):$(imageTag)
+              docker push $(acrLoginServer)/$(dockerImageName):$(imageTag)
+            displayName: "Push image to ACR"
+
+      - job: push_to_dockerhub
+        displayName: "Push image to Docker Hub"
+        dependsOn: push_to_acr
+        steps:
+          - checkout: none
+
+          - task: Docker@2
+            displayName: "Login to DockerHub"
+            inputs:
+              containerRegistry: "dockerhub-service-connection"
+              command: "login"
+
+          - script: |
+              docker tag $(dockerImageName):$(imageTag) $(dockerHubRepo):$(imageTag)
+              docker push $(dockerHubRepo):$(imageTag)
+            displayName: "Push image to DockerHub"

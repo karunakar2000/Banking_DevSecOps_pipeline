@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dtb-banking-prod
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: 'https://github.com/<your-user>/banking-ado-k8s-argocd.git'
+    targetRevision: main
+    path: helm/banking-app
+    helm:
+      valueFiles:
+        - values-prod.yaml
+      parameters:
+        - name: image.tag
+          value: "prod"
+
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: prod-banking
+
+  syncPolicy:
+    # For banking-style control, start with manual sync.
+    # Uncomment 'automated' if you want full GitOps for prod as well.
+    # automated:
+    #   prune: true
+    #   selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
