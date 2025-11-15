@@ -247,5 +247,5 @@ This project can be deployed end-to-end across Azure and AKS using Azure DevOps 
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/<your-account>/banking-ado-k8s-argocd.git
+   git clone https://github.com/karunakar2000/Banking-ado-k8s-argocd-project.git
    cd banking-ado-k8s-argocd
