@@ -254,8 +254,8 @@ The solution follows modern DevSecOps and GitOps principles to deliver secure, s
 | Cloud Providers   | Azure + AWS (artifact storage and DR strategy)                |
 | Ingress / Routing | Traefik Ingress Controller                                    |
 
-
-## Developer Commit => Azure DevOps CI
+## End-to-End Deployment Workflow
+### Developer Commit => Azure DevOps CI
   - SAST with SonarQube                                                                                        
   - Build & JUnit test with Maven                                                                                
   - Container image build                                                                                      
