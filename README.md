@@ -261,7 +261,7 @@ The solution follows modern DevSecOps and GitOps principles to deliver secure, s
   - Container image build                                                                                      
   - Trivy image vulnerability scanning                                                                           
   - Publish image to Azure Container Registry (ACR)                                                               
-  # Trigger CD Pipeline                                                                                        
+  ### Trigger CD Pipeline                                                                                        
         Helm upgrade on AKS                                                                                    
         Commit new image tag to Git repo                                                                       
         Argo CD sync (GitOps)                                                                                    
