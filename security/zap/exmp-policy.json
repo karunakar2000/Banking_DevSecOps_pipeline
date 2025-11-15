@@ -1,0 +1,31 @@
+### `security/zap/exmp-policy.json`
+
+Example OWASP ZAP threshold / rule policy you can reference from docs:
+
+// ```json
+// {
+//   "policyName": "DTB-BankingOnline-Default",
+//   "description": "Baseline ZAP policy for DTB BankingOnline application.",
+//   "alertThreshold": "Medium",
+//   "attackStrength": "Medium",
+//   "rules": [
+//     {
+//       "id": "40012",
+//       "name": "Cross Site Scripting (Reflected)",
+//       "threshold": "Medium",
+//       "strength": "High"
+//     },
+//     {
+//       "id": "40018",
+//       "name": "SQL Injection",
+//       "threshold": "Medium",
+//       "strength": "High"
+//     },
+//     {
+//       "id": "90019",
+//       "name": "Content Security Policy (CSP) Header Not Set",
+//       "threshold": "Low",
+//       "strength": "Medium"
+//     }
+//   ]
+// }

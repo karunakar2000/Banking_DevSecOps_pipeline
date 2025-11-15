@@ -1,0 +1,97 @@
+{
+  "id": null,
+  "uid": "dtb-bankingonline",
+  "title": "DTB BankingOnline - Service Overview",
+  "tags": ["dtb-bank", "bankingonline", "application"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "HTTP Request Rate (req/s)",
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{app=\"banking-online\"}[1m]))",
+          "legendFormat": "All routes",
+          "interval": ""
+        }
+      ],
+      "lines": true,
+      "linewidth": 2,
+      "xaxis": {
+        "mode": "time"
+      },
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Requests / second",
+          "logBase": 1,
+          "min": 0
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "HTTP Error Rate (5xx)",
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{app=\"banking-online\",status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx errors",
+          "interval": ""
+        }
+      ],
+      "lines": true,
+      "linewidth": 2,
+      "xaxis": {
+        "mode": "time"
+      },
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Errors / second",
+          "logBase": 1,
+          "min": 0
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 0.5,
+          "op": "gt",
+          "colorMode": "critical",
+          "line": true,
+          "fill": false
+        }
+      ]
+    },
+    {
+      "type": "singlestat",
+      "title": "Current Healthy Pods",
+      "id": 3,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(kube_pod_status_ready{condition=\"true\",namespace=~\".*banking.*\",pod=~\".*banking-online.*\"})",
+          "interval": ""
+        }
+      ],
+      "format": "short",
+      "colorBackground": true,
+      "thresholds": "1,2"
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

@@ -1,0 +1,59 @@
+# monitoring/loki-values.yaml
+# Loki configuration used for application and platform logs
+
+loki:
+  auth_enabled: false
+
+  ingester:
+    lifecycler:
+      ring:
+        kvstore:
+          store: memberlist
+    chunk_idle_period: 5m
+    chunk_block_size: 262144
+
+  schema_config:
+    configs:
+      - from: 2024-01-01
+        store: boltdb-shipper
+        object_store: azure
+        schema: v11
+        index:
+          prefix: index_
+          period: 24h
+
+  storage_config:
+    azure:
+      account_name: "changeme-storage-account"
+      account_key: "CHANGEME-KEY"
+      container_name: "loki-logs"
+
+  compactor:
+    working_directory: /data/loki/boltdb-shipper-compactor
+    shared_store: azure
+
+  limits_config:
+    max_streams_per_user: 5000
+    retention_period: 168h    # 7 days
+
+gateway:
+  enabled: true
+
+promtail:
+  enabled: true
+  pipelineStages:
+    - docker: {}
+    - json:
+        expressions:
+          level: level
+          msg: message
+    - labels:
+        level:
+  extraScrapeConfigs:
+    - job_name: kubernetes-pods-banking-online
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: banking-online
