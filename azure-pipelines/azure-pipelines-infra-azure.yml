@@ -1,0 +1,260 @@
+# File: azure-pipelines/azure-pipelines-infra-azure.yml
+# Purpose: Provision and manage DTB Bank Azure infrastructure (AKS, networking, etc.)
+
+trigger:
+  branches:
+    include:
+      - main
+      - infra/*
+  paths:
+    include:
+      - infra/terraform-azure/*
+      - azure-pipelines/azure-pipelines-infra-azure.yml
+
+pr: none
+
+parameters:
+  - name: environment
+    displayName: "Environment"
+    type: string
+    default: "dev"
+    values:
+      - dev
+      - uat
+      - prod
+
+  - name: action
+    displayName: "Terraform Action"
+    type: string
+    default: "plan"
+    values:
+      - plan
+      - apply
+      - destroy
+
+pool:
+  name: LinuxAgentPool
+  demands:
+    - Terraform -equals Yes
+
+variables:
+  # Variable group should contain:
+  #   azure_subscription_id
+  #   azure_tenant_id
+  #   azure_client_id
+  #   azure_client_secret
+  #   azure_location
+  #   tf_storage_account_name
+  #   tf_storage_container_name
+  #   tf_state_key_prefix
+  - group: AZURE_INFRA
+
+  - name: TF_WORKDIR
+    value: infra/terraform-azure
+
+  # Optional backend config file in TF_WORKDIR (or we build backend config on the fly)
+  - name: TF_BACKEND_FILE
+    value: "backend.tfvars"
+
+  - name: AZURE_SERVICE_CONNECTION
+    value: "azure-infra-service-connection"   # Change to your actual service connection name
+
+stages:
+ 
+  # 1. Validate (Azure Terraform code)
+  - stage: Validate
+    displayName: "Terraform Validate (Azure)"
+    jobs:
+      - job: tf_validate
+        displayName: "terraform validate ${{ parameters.environment }}"
+        steps:
+          - checkout: self
+            clean: true
+
+          - bash: |
+              echo "Environment: ${{ parameters.environment }}"
+              terraform version
+            displayName: "Check Terraform version"
+
+      # Run terraform from within AzureCLI context (automatically logged in)
+      - task: AzureCLI@2
+        displayName: "Terraform init & validate"
+        inputs:
+          azureSubscription: $(AZURE_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          workingDirectory: $(TF_WORKDIR)
+          inlineScript: |
+            echo "Working directory: $(pwd)"
+            ls -al
+
+            # Build backend config dynamically (if not using a static file)
+            cat > backend.tfvars <<EOF
+            resource_group_name  = "${tf_resource_group_name}"
+            storage_account_name = "${tf_storage_account_name}"
+            container_name       = "${tf_storage_container_name}"
+            key                  = "${tf_state_key_prefix}-${{ parameters.environment }}.tfstate"
+            EOF
+
+            echo "Using backend configuration:"
+            cat backend.tfvars
+
+            terraform init -backend-config=backend.tfvars
+            terraform validate
+        env:
+          ARM_SUBSCRIPTION_ID: $(azure_subscription_id)
+          ARM_CLIENT_ID: $(azure_client_id)
+          ARM_CLIENT_SECRET: $(azure_client_secret)
+          ARM_TENANT_ID: $(azure_tenant_id)
+          ARM_USE_MSI: false
+          ARM_SKIP_PROVIDER_REGISTRATION: false
+
+  # 2. Plan
+  - stage: Plan
+    displayName: "Terraform Plan (Azure)"
+    dependsOn: Validate
+    condition: and(succeeded(), eq('${{ parameters.action }}', 'plan'))
+    jobs:
+  - job: tf_plan
+    displayName: "terraform plan ${{ parameters.environment }}"
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: AzureCLI@2
+        displayName: "Terraform plan"
+        inputs:
+          azureSubscription: $(AZURE_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          workingDirectory: $(TF_WORKDIR)
+          inlineScript: |
+            echo "Running terraform plan for environment: ${{ parameters.environment }}"
+
+            TFVARS_FILE="${{ parameters.environment }}.tfvars"
+            if [ ! -f "$TFVARS_FILE" ]; then
+              echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found."
+              exit 1
+            fi
+
+            cat > backend.tfvars <<EOF
+            resource_group_name  = "${tf_resource_group_name}"
+            storage_account_name = "${tf_storage_account_name}"
+            container_name       = "${tf_storage_container_name}"
+            key                  = "${tf_state_key_prefix}-${{ parameters.environment }}.tfstate"
+            EOF
+
+            terraform init -backend-config=backend.tfvars
+
+            terraform plan \
+              -var-file="$TFVARS_FILE" \
+              -out="plan-${{ parameters.environment }}.tfplan"
+
+            echo "Plan generated: plan-${{ parameters.environment }}.tfplan"
+        env:
+          ARM_SUBSCRIPTION_ID: $(azure_subscription_id)
+          ARM_CLIENT_ID: $(azure_client_id)
+          ARM_CLIENT_SECRET: $(azure_client_secret)
+          ARM_TENANT_ID: $(azure_tenant_id)
+
+      - task: PublishBuildArtifacts@1
+        displayName: "Publish Terraform plan artifact"
+        inputs:
+          PathtoPublish: "$(TF_WORKDIR)"
+          ArtifactName: "tfplan-azure-${{ parameters.environment }}"
+          publishLocation: "Container"
+  
+  # 3. Apply
+  - stage: Apply
+    displayName: "Terraform Apply (Azure)"
+    dependsOn: Validate
+    condition: and(succeeded(), eq('${{ parameters.action }}', 'apply'))
+    jobs:
+  - job: tf_apply
+    displayName: "terraform apply ${{ parameters.environment }}"
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: AzureCLI@2
+        displayName: "Terraform plan & apply"
+        inputs:
+          azureSubscription: $(AZURE_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          workingDirectory: $(TF_WORKDIR)
+          inlineScript: |
+            echo "Running terraform apply for environment: ${{ parameters.environment }}"
+
+            TFVARS_FILE="${{ parameters.environment }}.tfvars"
+            if [ ! -f "$TFVARS_FILE" ]; then
+              echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found."
+              exit 1
+            fi
+
+            cat > backend.tfvars <<EOF
+            resource_group_name  = "${tf_resource_group_name}"
+            storage_account_name = "${tf_storage_account_name}"
+            container_name       = "${tf_storage_container_name}"
+            key                  = "${tf_state_key_prefix}-${{ parameters.environment }}.tfstate"
+            EOF
+
+            terraform init -backend-config=backend.tfvars
+
+            terraform plan \
+              -var-file="$TFVARS_FILE" \
+              -out="plan-${{ parameters.environment }}.tfplan"
+
+            terraform apply -auto-approve "plan-${{ parameters.environment }}.tfplan"
+        env:
+          ARM_SUBSCRIPTION_ID: $(azure_subscription_id)
+          ARM_CLIENT_ID: $(azure_client_id)
+          ARM_CLIENT_SECRET: $(azure_client_secret)
+          ARM_TENANT_ID: $(azure_tenant_id)
+
+
+  # 4. Destroy
+  - stage: Destroy
+    displayName: "Terraform Destroy (Azure)"
+    dependsOn: Validate
+    condition: and(succeeded(), eq('${{ parameters.action }}', 'destroy'))
+    jobs:
+  - job: tf_destroy
+    displayName: "terraform destroy ${{ parameters.environment }}"
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: AzureCLI@2
+        displayName: "Terraform destroy"
+        inputs:
+          azureSubscription: $(AZURE_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          workingDirectory: $(TF_WORKDIR)
+          inlineScript: |
+            echo "Running terraform destroy for environment: ${{ parameters.environment }}"
+
+            TFVARS_FILE="${{ parameters.environment }}.tfvars"
+            if [ ! -f "$TFVARS_FILE" ]; then
+              echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found."
+              exit 1
+            fi
+
+            cat > backend.tfvars <<EOF
+            resource_group_name  = "${tf_resource_group_name}"
+            storage_account_name = "${tf_storage_account_name}"
+            container_name       = "${tf_storage_container_name}"
+            key                  = "${tf_state_key_prefix}-${{ parameters.environment }}.tfstate"
+            EOF
+
+            terraform init -backend-config=backend.tfvars
+
+            terraform destroy \
+              -var-file="$TFVARS_FILE" \
+              -auto-approve
+        env:
+          ARM_SUBSCRIPTION_ID: $(azure_subscription_id)
+          ARM_CLIENT_ID: $(azure_client_id)
+          ARM_CLIENT_SECRET: $(azure_client_secret)
+          ARM_TENANT_ID: $(azure_tenant_id)

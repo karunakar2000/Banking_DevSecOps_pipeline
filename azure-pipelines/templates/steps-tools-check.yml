@@ -1,0 +1,20 @@
+# File: azure-pipelines/templates/steps-tools-check.yml
+# Purpose:
+#   Common step template to verify that required tooling is installed
+#   on the Azure DevOps self-hosted agent (Terraform, Packer, Docker).
+
+steps:
+  - script: |
+      echo "Checking Terraform version..."
+      terraform version
+    displayName: 'Check Terraform version'
+
+  - script: |
+      echo "Checking Packer version..."
+      packer version
+    displayName: 'Check Packer version'
+
+  - script: |
+      echo "Checking Docker version..."
+      docker version
+    displayName: 'Check Docker version'

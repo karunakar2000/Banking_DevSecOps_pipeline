@@ -1,0 +1,216 @@
+# File: azure-pipelines/templates/jobs-terraform-assumerole.yml
+# Purpose:
+#   Reusable Terraform jobs for AWS multi-account using AssumeRole + workspaces.
+#
+# Usage example:
+#   - template: azure-pipelines/templates/jobs-terraform-assumerole.yml
+#     parameters:
+#       env: "DEV"
+#       aws_access_key: $(aws_access_key)
+#       aws_secret_access_key: $(aws_secret_access_key)
+#       terraform_destroy: "NO"
+#       terraform_workspace_creation: "NO"
+#       terraform_workspace: "dev"
+#       role: $(assume_role_arn)
+#       tf_workdir: "infra/aws"
+
+parameters:
+  env: ''                          # DEV / UAT / PROD or dev/uat/prod
+  aws_access_key: ''
+  aws_secret_access_key: ''
+  terraform_destroy: 'NO'          # YES / NO
+  terraform_workspace_creation: 'NO'  # YES to create workspaces, NO to skip
+  terraform_workspace: ''          # dev / uat / prod
+  role: ''                         # assume_role_arn
+  tf_workdir: '.'                  # Terraform working directory
+  tfvars_file: ''                  # Optional; default = <env>.tfvars
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. terraform_workspace_creation (optional)
+  # ---------------------------------------------------------------------------
+  - job: terraform_workspace_creation
+    displayName: "Terraform workspace creation – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_workspace_creation }}', 'YES')
+    pool:
+      name: LinuxAgentPool
+    dependsOn: TerraformChecking
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Creating workspaces for environment: ${{ parameters.env }}"
+          echo "Assume role ARN: ${{ parameters.role }}"
+
+          export AWS_ACCESS_KEY_ID=${{ parameters.aws_access_key }}
+          export AWS_SECRET_ACCESS_KEY=${{ parameters.aws_secret_access_key }}
+          export TF_VAR_environment=${{ parameters.env }}
+          export TF_VAR_assume_role_arn=${{ parameters.role }}
+
+          terraform init
+          terraform workspace new dev || echo "Workspace 'dev' already exists"
+          terraform workspace new prod || echo "Workspace 'prod' already exists"
+          terraform workspace list
+        displayName: 'Terraform workspace creation'
+
+  # ---------------------------------------------------------------------------
+  # 2. terraform_init_validate
+  # ---------------------------------------------------------------------------
+  - job: terraform_init_validate
+    displayName: "Terraform init & validate – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'NO')
+    dependsOn: terraform_workspace_creation
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Terraform init & validate for environment: ${{ parameters.env }}"
+          echo "Workspace: ${{ parameters.terraform_workspace }}"
+          echo "Assume role ARN: ${{ parameters.role }}"
+
+          export AWS_ACCESS_KEY_ID=${{ parameters.aws_access_key }}
+          export AWS_SECRET_ACCESS_KEY=${{ parameters.aws_secret_access_key }}
+          export TF_VAR_environment=${{ parameters.env }}
+          export TF_VAR_assume_role_arn=${{ parameters.role }}
+
+          terraform init
+          terraform workspace select ${{ parameters.terraform_workspace }} || terraform workspace new ${{ parameters.terraform_workspace }}
+          terraform validate
+        displayName: 'Terraform init & validate (assume role)'
+
+  # ---------------------------------------------------------------------------
+  # 3. terraform_init_plan
+  # ---------------------------------------------------------------------------
+  - job: terraform_init_plan
+    displayName: "Terraform plan – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'NO')
+    dependsOn: terraform_init_validate
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Terraform plan for environment: ${{ parameters.env }}"
+          echo "Workspace: ${{ parameters.terraform_workspace }}"
+
+          export AWS_ACCESS_KEY_ID=${{ parameters.aws_access_key }}
+          export AWS_SECRET_ACCESS_KEY=${{ parameters.aws_secret_access_key }}
+          export TF_VAR_environment=${{ parameters.env }}
+          export TF_VAR_assume_role_arn=${{ parameters.role }}
+
+          if [ -n "${{ parameters.tfvars_file }}" ]; then
+            TFVARS_FILE="${{ parameters.tfvars_file }}"
+          else
+            TFVARS_FILE="$(echo '${{ parameters.env }}' | tr '[:upper:]' '[:lower:]').tfvars"
+          fi
+
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found."
+            exit 1
+          fi
+
+          terraform init
+          terraform workspace select ${{ parameters.terraform_workspace }} || terraform workspace new ${{ parameters.terraform_workspace }}
+
+          terraform plan \
+            -var-file="$TFVARS_FILE" \
+            -out="plan-${{ parameters.env }}.tfplan"
+
+          echo "Plan generated: plan-${{ parameters.env }}.tfplan"
+        displayName: 'Terraform plan (assume role)'
+
+  # ---------------------------------------------------------------------------
+  # 4. terraform_apply
+  # ---------------------------------------------------------------------------
+  - job: terraform_apply
+    displayName: "Terraform apply – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'NO')
+    dependsOn: terraform_init_plan
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Terraform apply for environment: ${{ parameters.env }}"
+          echo "Workspace: ${{ parameters.terraform_workspace }}"
+
+          export AWS_ACCESS_KEY_ID=${{ parameters.aws_access_key }}
+          export AWS_SECRET_ACCESS_KEY=${{ parameters.aws_secret_access_key }}
+          export TF_VAR_environment=${{ parameters.env }}
+          export TF_VAR_assume_role_arn=${{ parameters.role }}
+
+          PLAN_FILE="plan-${{ parameters.env }}.tfplan"
+          if [ ! -f "$PLAN_FILE" ]; then
+            echo "WARNING: Plan file '$PLAN_FILE' not found. Generating a fresh plan before apply."
+            if [ -n "${{ parameters.tfvars_file }}" ]; then
+              TFVARS_FILE="${{ parameters.tfvars_file }}"
+            else
+              TFVARS_FILE="$(echo '${{ parameters.env }}' | tr '[:upper:]' '[:lower:]').tfvars"
+            fi
+            terraform init
+            terraform workspace select ${{ parameters.terraform_workspace }} || terraform workspace new ${{ parameters.terraform_workspace }}
+            terraform plan \
+              -var-file="$TFVARS_FILE" \
+              -out="$PLAN_FILE"
+          fi
+
+          terraform apply -auto-approve "$PLAN_FILE"
+        displayName: 'Terraform apply (assume role)'
+
+  # ---------------------------------------------------------------------------
+  # 5. terraform_destroy
+  # ---------------------------------------------------------------------------
+  - job: terraform_destroy
+    displayName: "Terraform destroy – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'YES')
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Terraform destroy for environment: ${{ parameters.env }}"
+          echo "Workspace: ${{ parameters.terraform_workspace }}"
+
+          export AWS_ACCESS_KEY_ID=${{ parameters.aws_access_key }}
+          export AWS_SECRET_ACCESS_KEY=${{ parameters.aws_secret_access_key }}
+          export TF_VAR_environment=${{ parameters.env }}
+          export TF_VAR_assume_role_arn=${{ parameters.role }}
+
+          if [ -n "${{ parameters.tfvars_file }}" ]; then
+            TFVARS_FILE="${{ parameters.tfvars_file }}"
+          else
+            TFVARS_FILE="$(echo '${{ parameters.env }}' | tr '[:upper:]' '[:lower:]').tfvars"
+          fi
+
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found."
+            exit 1
+          fi
+
+          terraform init
+          terraform workspace select ${{ parameters.terraform_workspace }} || terraform workspace new ${{ parameters.terraform_workspace }}
+
+          terraform destroy \
+            -var-file="$TFVARS_FILE" \
+            -auto-approve
+        displayName: 'Terraform destroy (assume role)'

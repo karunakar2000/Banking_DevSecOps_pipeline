@@ -1,0 +1,188 @@
+# File: azure-pipelines/templates/jobs-terraform-basic.yml
+# Purpose:
+#   Reusable Terraform jobs (version, init, plan, apply, destroy)
+#   for a single AWS account using access_key / secret_key.
+#
+# Usage example:
+#   - template: azure-pipelines/templates/jobs-terraform-basic.yml
+#     parameters:
+#       env: "DEV"
+#       aws_access_key: $(aws_access_key)
+#       aws_secret_access_key: $(aws_secret_access_key)
+#       terraform_destroy: "NO"
+#       tf_workdir: "infra/aws"
+
+parameters:
+  env: ''                  # DEV / UAT / PROD (or dev/uat/prod)
+  aws_access_key: ''
+  aws_secret_access_key: ''
+  terraform_destroy: 'NO'  # "YES" or "NO"
+  tf_workdir: '.'          # Terraform working directory (relative to repo root)
+  tfvars_file: ''          # Optional explicit tfvars file (if empty, uses "<env>.tfvars")
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. terraform_version
+  # ---------------------------------------------------------------------------
+  - job: terraform_version
+    displayName: "Terraform version check – ${{ parameters.env }}"
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - script: |
+          echo "Environment: ${{ parameters.env }}"
+          echo "Current directory: $(pwd)"
+          terraform version
+        displayName: 'Show Terraform version'
+
+  # ---------------------------------------------------------------------------
+  # 2. terraform_init_validate
+  # ---------------------------------------------------------------------------
+  - job: terraform_init_validate
+    displayName: "Terraform init & validate – ${{ parameters.env }}"
+    dependsOn: terraform_version
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          echo "Environment: ${{ parameters.env }}"
+          echo "Working directory: ${{ parameters.tf_workdir }}"
+          cd ${{ parameters.tf_workdir }}
+          pwd
+          ls -al
+
+          echo "Initializing Terraform..."
+          terraform init
+
+          echo "Validating Terraform configuration..."
+          terraform validate
+        displayName: 'Terraform init & validate'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
+          AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
+
+  # ---------------------------------------------------------------------------
+  # 3. terraform_plan
+  # ---------------------------------------------------------------------------
+  - job: terraform_init_plan
+    displayName: "Terraform plan – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'NO')
+    dependsOn: terraform_init_validate
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Running terraform plan for environment: ${{ parameters.env }}"
+
+          if [ -n "${{ parameters.tfvars_file }}" ]; then
+            TFVARS_FILE="${{ parameters.tfvars_file }}"
+          else
+            # Default to <env>.tfvars (dev.tfvars / uat.tfvars / prod.tfvars)
+            TFVARS_FILE="$(echo '${{ parameters.env }}' | tr '[:upper:]' '[:lower:]').tfvars"
+          fi
+
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found in $(pwd)."
+            exit 1
+          fi
+
+          terraform init
+          terraform plan \
+            -var "aws_access_key=${{ parameters.aws_access_key }}" \
+            -var "aws_secret_key=${{ parameters.aws_secret_access_key }}" \
+            -var-file="$TFVARS_FILE" \
+            -out="plan-${{ parameters.env }}.tfplan"
+
+          echo "Plan file generated: plan-${{ parameters.env }}.tfplan"
+        displayName: 'Terraform plan'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
+          AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
+
+  # ---------------------------------------------------------------------------
+  # 4. terraform_apply
+  # ---------------------------------------------------------------------------
+  - job: terraform_apply
+    displayName: "Terraform apply – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'NO')
+    dependsOn: terraform_init_plan
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Applying terraform for environment: ${{ parameters.env }}"
+
+          PLAN_FILE="plan-${{ parameters.env }}.tfplan"
+          if [ ! -f "$PLAN_FILE" ]; then
+            echo "WARNING: Plan file '$PLAN_FILE' not found. Generating a fresh plan before apply."
+            if [ -n "${{ parameters.tfvars_file }}" ]; then
+              TFVARS_FILE="${{ parameters.tfvars_file }}"
+            else
+              TFVARS_FILE="$(echo '${{ parameters.env }}' | tr '[:upper:]' '[:lower:]').tfvars"
+            fi
+            terraform init
+            terraform plan \
+              -var "aws_access_key=${{ parameters.aws_access_key }}" \
+              -var "aws_secret_key=${{ parameters.aws_secret_access_key }}" \
+              -var-file="$TFVARS_FILE" \
+              -out="$PLAN_FILE"
+          fi
+
+          terraform apply -auto-approve "$PLAN_FILE"
+        displayName: 'Terraform apply'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
+          AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
+
+  # ---------------------------------------------------------------------------
+  # 5. terraform_destroy
+  # ---------------------------------------------------------------------------
+  - job: terraform_destroy
+    displayName: "Terraform destroy – ${{ parameters.env }}"
+    condition: eq('${{ parameters.terraform_destroy }}', 'YES')
+    pool:
+      name: LinuxAgentPool
+    steps:
+      - checkout: self
+        clean: true
+
+      - script: |
+          set -e
+          cd ${{ parameters.tf_workdir }}
+          echo "Destroying infrastructure for environment: ${{ parameters.env }}"
+
+          if [ -n "${{ parameters.tfvars_file }}" ]; then
+            TFVARS_FILE="${{ parameters.tfvars_file }}"
+          else
+            TFVARS_FILE="$(echo '${{ parameters.env }}' | tr '[:upper:]' '[:lower:]').tfvars"
+          fi
+
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "ERROR: Expected tfvars file '$TFVARS_FILE' not found in $(pwd)."
+            exit 1
+          fi
+
+          terraform init
+          terraform destroy \
+            -var "aws_access_key=${{ parameters.aws_access_key }}" \
+            -var "aws_secret_key=${{ parameters.aws_secret_access_key }}" \
+            -var-file="$TFVARS_FILE" \
+            -auto-approve
+        displayName: 'Terraform destroy'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
+          AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
