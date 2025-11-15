@@ -1,163 +1,249 @@
-# Banking CI/CD & DevSecOps Pipeline — DTB Bank (Work-in-Progress)
+# Bank–Cloud DevSecOps on Azure DevOps, AKS & Argo CD
 
-> Short: a compact, practical repo that demonstrates the CI/CD, security scanning, artifact management, and cloud deployment work I run at DTB Bank.
+This repository shows a banking DevSecOps implementation using **Azure DevOps**, **Kubernetes (AKS)**, **Helm**, and **Argo CD**, backed by **AWS and Azure infrastructure** provisioned with **Terraform**.
 
-## Overview
-This repo contains a demo implementation of the sort of pipeline I run at DTB.  
-It’s focused on delivering a small microservice to cloud in a secure, auditable way:
+The code and pipelines are based on a realistic scenario from a banking client (DTB Bank), where the goal is to:
 
-- Build and unit-test the app  
-- Run static code analysis (SonarQube)  
-- Build Docker image, scan with Trivy  
-- Push artifacts to JFrog Artifactory  
-- Deploy to Kubernetes (EKS/AKS) via Helm  
-- Use Terraform + Ansible for infra provisioning and configuration  
-- Monitor with Prometheus/Grafana and collect logs with Loki/CloudWatch
+- Build and test a Spring Boot application (Banking-online, Microservice-Architecture) using Azure DevOps.
+- Enforce quality and security gates with SonarQube, Trivy, and OWASP ZAP.
+- Publish artifacts to JFrog Artifactory and container images to ACR / Docker Hub.
+- Provision and manage cloud infrastructure in AWS and Azure using Terraform.
+- Deploy and operate the application on AKS using Helm and GitOps with Argo CD.
+- Support multiple environments (Dev, UAT, Prod) with controlled promotion.
 
-I use this as my working template to show how we enforce DevSecOps gates and promote artifacts through environments (dev → qa → prod).
+The repository is structured to be readable for hiring managers and technical interviewers while still being useful as a reference for real-world work.
 
-## Goals
-1. Keep production deployments traceable (image + artifact provenance).  
-2. Fail early on code quality or critical vulnerabilities.  
-3. Keep infrastructure reproducible (Terraform) and configuration idempotent (Ansible).  
-4. Keep operational runbooks and alerts simple and practical.
+---
 
-## Architecture (high level)
-```
-GitHub (source)  --> Jenkins (CI) --> SonarQube (code quality)
-                                --> Docker build -> Trivy scan -> JFrog (artifacts)
-                                --> Terraform (infra) -> Ansible (config)
-                                --> Helm deploy -> EKS/AKS (k8s)
-Monitoring: Prometheus + Grafana + Loki (logs) + CloudWatch (cloud metrics)
-Ingress: Traefik (k8s) with TLS termination
-Secrets: Vault or Secrets manager (not in this demo)
-```
+## 1. High-level architecture
 
-## What’s in this repo
+At a high level, the solution looks like this:
 
-├── app/                      # sample app (Node.js or small Java service)
-│   ├── src/
-│   └── Dockerfile
-├── jenkins/                  # Jenkinsfile and shared-library examples
-│   └── Jenkinsfile
-├── terraform/                # Terraform modules for VPC, EKS/AKS, storage
-│   ├── main.tf
-│   ├── variables.tf
-│   └── outputs.tf
-├── ansible/                  # Ansible playbooks for bootstrap/config
-│   └── playbook.yml
-├── k8s/                      # Helm chart or raw k8s manifests
-│   ├── chart/
-│   ├── values.yaml
-│   └── deployment.yaml
-├── security/                 # SonarQube conf, Trivy policy files
-│   └── trivy-ignore.yaml
-├── docs/                     # diagrams, runbooks, architecture notes
-└── README.md
-```
+- **Source Control**: GitHub repository `banking-ado-k8s-argocd`
+- **CI/CD Engine**: Azure DevOps Pipelines (YAML)
+- **Application**: Spring Boot (BankingOnline sample) packaged as a JAR and then a Docker image
+- **Container Registry**:
+  - Azure Container Registry (ACR) for AKS deployments
+  - Docker Hub as a secondary/public registry
+  - JFrog Artifactory for Maven artifacts
+- **Infrastructure**:
+  - AWS: VPC, subnets, internet gateway, security groups, EC2 instances
+  - Azure: AKS cluster, networking, and related resources (optional extension)
+- **Orchestration**: Kubernetes on Azure Kubernetes Service (AKS)
+- **Packaging**: Helm chart (`helm/banking-app`)
+- **GitOps**: Argo CD Applications (Dev, UAT, Prod) pulling manifests/Helm from this repo
+- **Security & Quality**:
+  - SonarQube SAST in the CI pipeline
+  - Trivy container image scanning
+  - OWASP ZAP DAST against staging and production URLs
+- **Monitoring & Logging** (optional placeholders):
+  - Prometheus, Grafana, Loki, and ELK references for metrics and logs
 
-# Quick start (local / dev)
- This repo is a demo — it assumes you have Docker, kubectl, helm installed and access to a k8s cluster.
+The diagrams in `docs/` (for example `architecture-diagram.png` and `ci-cd-pipeline.png`) illustrate the flow from commit, through CI/CD, to production deployment.
 
-1. Clone:
-   bash
-    git clone https://github.com/<yourusername>/banking-devsecops-pipeline.git
-    cd banking-devsecops-pipeline
+---
 
+## 2. Tools and technologies
 
-2. Build and run the sample app locally:
-   bash
-    cd app
-    docker build -t <your-dockerhub-username>/bank-app:dev .
-    docker run -p 8080:8080 <your-dockerhub-username>/bank-app:dev
-    # check http://localhost:8080
+**Cloud & Infra**
+- Azure DevOps
+- Azure Kubernetes Service (AKS)
+- Azure Container Registry (ACR)
+- AWS (VPC, EC2, S3, IAM, S3 backend for Terraform state)
+- Terraform (with workspaces and AssumeRole for multi-account)
 
+**Application & Packaging**
+- Java 11+ / Spring Boot (BankingOnline as a sample)
+- Maven
+- Docker
+- Helm
 
-3. (Optional) Run unit tests:
-    bash
-    # Node example
-    npm install
-    npm test
+**Kubernetes & GitOps**
+- AKS
+- Traefik Ingress Controller
+- Argo CD (GitOps for Dev/UAT/Prod)
 
+**DevSecOps**
+- SonarQube (code quality and SAST)
+- Trivy (container image scanning with JUnit reporting)
+- OWASP ZAP (DAST against staging and prod URLs)
+- JFrog Artifactory (Maven repository)
+- Azure Key Vault / Variable groups / Secure files for secrets
 
-# CI/CD (Jenkins) — what it does
-The 'jenkins/Jenkinsfile' in this repo demonstrates a multistage pipeline:
+**Monitoring & Logging (optional)**
+- Prometheus, Grafana
+- Loki or ELK for logs
 
-1. Checkout → run unit tests  
-2. SonarQube scan (quality gates)  
-3. Build Docker image  
-4. Trivy scan the image (fail on critical HIGH/CRITICAL)  
-5. Push Docker image to JFrog Artifactory / Docker registry  
-6. Terraform plan/apply for infra (dev env only in demo)  
-7. Ansible apply to provision/config nodes (for non-k8s targets)  
-8. Helm deploy to k8s cluster  
-9. Post-deploy smoke tests and notify (Slack/email)
+---
 
-Tip:- The pipeline uses credentials stored in Jenkins (never hard-coded).
+## 3. Repository layout
 
-# Security & DevSecOps
-- Code quality: SonarQube configured; pipeline aborts on quality gate failure.  
-- Image scanning: Trivy run against image; policy configurable in security/.  
-- Artifact management: JFrog Artifactory holds versioned artifacts; promotion is manual/automated depending on env.  
-- Secrets: Use a secrets manager (HashiCorp Vault, AWS Secrets Manager, or Azure Key Vault). In this demo we show placeholders and  avoid including real secrets.  
-- Network: k8s network policies and Traefik ingress with TLS for production workloads.
+Brief overview of the main folders:
 
-# Terraform notes
-- Terraform modules live in `terraform/`.  
-- Use a remote backend (S3+DynamoDB or Azure Storage with blob + lease) in real setups — local state only for demos.  
-- Example usage:
-```bash
-cd terraform
-terraform init
-terraform plan -var-file=dev.tfvars
-terraform apply -auto-approve -var-file=dev.tfvars
-```
-- Always 'terraform plan' and review before apply.
+- `app/`  
+  Spring Boot application code (or a pointer to the upstream BankingOnline repo), Maven configuration, and Dockerfile. The Azure DevOps CI pipeline uses this to build the JAR and container image.
 
-## Ansible notes
-- `ansible/playbook.yml` bootstraps servers (install docker, kubelet, join cluster) or configures app nodes.  
-- Credentials are passed via Ansible Vault or via Jenkins credentials injection (do not store secrets in repo).
+- `azure-pipelines/`  
+  YAML pipelines for:
+  - CI: build, test, SonarQube analysis, Trivy scan, JFrog artifact publish, ACR/Docker Hub push.
+  - CD to AKS: Helm-based deployment to Dev/UAT/Prod.
+  - Infrastructure: Terraform pipelines for AWS VPC/EC2 and optionally AKS networking.
+  - Shared templates to avoid repetition (tool checks, Terraform job templates, AssumeRole, workspaces).
 
-## Helm / Kubernetes notes
-- Helm chart in `k8s/chart` packages deployments, services, and ingress.  
-- Image references are parameterized (so the same chart works for dev/qa/prod).  
-- Deploy example (requires kubeconfig):
-```bash
-helm upgrade --install bank-app ./k8s/chart -f k8s/values.dev.yaml --set image.tag=dev
-```
+- `infra/aws/`  
+  Terraform configuration that:
+  - Creates a VPC, subnets, internet gateway, route tables, and security groups.
+  - Provisions EC2 instances for legacy or supporting services.
+  - Uses environment-specific `*.tfvars` files (`dev.tfvars`, `uat.tfvars`, `prod.tfvars`).
+  - Optionally uses AWS AssumeRole and workspaces to target multiple accounts from a single Azure DevOps pipeline.
 
-## Observability
-- Export Prometheus metrics from the app (sample endpoint `/metrics`).  
-- Grafana dashboards live in `docs/grafana/` (examples).  
-- Loki collects logs; we show how to forward to CloudWatch for longer retention.
+- `infra/azure/`  
+  Placeholder Terraform configuration for AKS and related networking. This can be wired into `azure-pipelines-infra-azure.yml` as needed.
 
-## What I’d expect in a real DTB project (production notes)
-- Strict separation of environments with separate k8s clusters or namespaces.  
-- SSO + role-based access control for all tooling (Jenkins, Artifactory, SonarQube).  
-- Automated promotion workflow: artifacts promoted from dev → qa → prod (artifact immutability).  
-- Policy-as-code (OPA or Terraform Cloud policies) to enforce guardrails.  
-- Regular vulnerability scanning and scheduled dependency updates.
+- `k8s/`  
+  Base Kubernetes manifests (namespace, deployment, service, ingress, configmap) and overlays per environment. Traefik is used as the ingress controller.
 
-## Cleanup
-If you provision demo infra, destroy it:
-```bash
-cd terraform
-terraform destroy -auto-approve -var-file=dev.tfvars
-```
+- `helm/banking-app/`  
+  Helm chart for the banking application:
+  - Deployment, Service, Ingress, ConfigMap templates.
+  - `values.yaml` for shared defaults and per-environment overrides.
 
-## What I learned / Why I built this
-I use this repo as my living template to:
-- Test pipeline improvements safely,  
-- Demo secure artifact flow to auditors, and  
-- Quickly spin up a reproducible environment for troubleshooting.
+- `argocd/`  
+  Argo CD `Application` manifests for Dev/UAT/Prod:
+  - Each Argo CD Application watches a path in this repo (Helm chart or Kustomize overlay).
+  - When the Azure DevOps pipeline updates the image tag in values or Kustomize, Argo CD syncs the changes into AKS.
 
-It mirrors the kind of work I do daily at DTB: improving release reliability, reducing manual toil, and adding security gates where they matter.
+- `security/`  
+  Configuration for SonarQube, Trivy, and OWASP ZAP integration.
 
-## Contributing / Notes
-- This repo intentionally keeps secrets out. Use Jenkins credentials and secrets managers.  
-- Replace 'placeholder' values with your own registry, artifactory URLs, and cloud accounts.  
-- Use this as a starting point; each org will adapt modules to fit policy and compliance.
+- `monitoring/`  
+  Optional values files / dashboard templates for Prometheus, Grafana, and Loki.
 
-## Contact
-If you want to discuss the setup or see a short screen recording of the pipeline running, ping me at:  
-'github.com' —> I’m happy to walk through it.
+- `scripts/`  
+  Helper scripts for local testing, AKS setup, and one-off deployments.
+
+- `docs/`  
+  Markdown documents and diagrams explaining architecture, CI/CD, and infrastructure.
+
+---
+
+## 4. CI/CD pipeline overview (Azure DevOps)
+
+### 4.1 CI Pipeline (`azure-pipelines/azure-pipelines-ci.yml`)
+
+Typical flow on branch `development`:
+
+1. **Agent & tool check**  
+   Ensure Terraform, Packer, Docker, and other CLIs are available on the agent.
+
+2. **SonarQube SAST**  
+   - Prepare SonarQube analysis using a service connection.
+   - Run `mvn clean verify` with SonarQube integration.
+   - Publish the quality gate result and optionally break the build when it fails.
+
+3. **Build & Package**  
+   - Set a version based on the build ID (e.g. `Dev-4.0.<BuildId>`).
+   - Build the JAR with Maven.
+   - Deploy the artifact to JFrog Artifactory.
+   - Rename and store the JAR as a generic artifact for later deployment.
+
+4. **Artifact Distribution**  
+   - Upload the JAR to Azure Blob Storage for archival.
+   - Upload the JAR to AWS S3 for cross-cloud scenarios (if required).
+
+5. **Docker Build & Trivy Scan**  
+   - Build a Docker image from `app/Dockerfile`.
+   - Run the container locally on the agent for quick smoke testing.
+   - Scan the image with Trivy and publish JUnit-style reports into Azure DevOps.
+   - Optionally separate “low/medium” from “high/critical” findings.
+
+6. **Push Image to Registries**  
+   - Login and push to Azure ACR with the build tag.
+   - Tag and push to Docker Hub as a public image.
+
+This pipeline runs for development branches and can be extended or restricted via branch filters.
+
+### 4.2 CD Pipeline to AKS (`azure-pipelines/azure-pipelines-cd-aks.yml`)
+
+Typical flow:
+
+1. Triggered after a successful CI on selected branches or via a manual approval.
+2. Uses Helm and/or Kustomize to:
+   - Update image tags in the values file for the target environment (Dev/UAT/Prod).
+   - Apply changes to AKS directly (for simple deployments) **or** commit changes to the repo for Argo CD to pick up.
+3. For production, additional approvals and manual gates can be enforced.
+
+---
+
+## 5. GitOps with Argo CD
+
+The `argocd/` directory contains example `Application` manifests for each environment.
+
+A typical Argo CD Application file:
+
+- Points to this GitHub repo.
+- Selects a path such as `helm/banking-app` or `k8s/overlays/prod`.
+- Defines the destination cluster (the AKS API server) and namespace.
+- Enables automated sync with optional pruning and self-healing.
+
+The idea is:
+
+- Azure DevOps handles build, test, security scanning, and image publishing.
+- Argo CD watches Git (this repo) and applies the Kubernetes changes to AKS.
+- This gives a clean separation between CI and CD, and a Git-based audit trail.
+
+---
+
+## 6. Terraform and multi-environment infrastructure
+
+The Terraform configurations under `infra/aws/` are structured to reflect three common patterns you practised:
+
+1. **Simple VPC + EC2 deployment** with shared variables and multiple `*.tfvars` files.
+2. **Azure DevOps-driven Terraform** using:
+   - Secure files (`backend.json`, `access.auto.tfvars`).
+   - Variable groups for credentials.
+   - Conditional logic for `plan`, `apply`, and `destroy`.
+3. **AssumeRole + Workspaces**:
+   - A master account is used by Azure DevOps.
+   - Terraform assumes roles into target AWS accounts.
+   - Workspaces such as `dev` and `prod` separate state and configuration.
+   - Pipelines can selectively create/destroy resources per environment.
+
+This mirrors how enterprises separate accounts and environments for security and governance.
+
+---
+
+## 7. Security & compliance
+
+Security is integrated across the pipeline, not an afterthought:
+
+- **SAST (SonarQube)**  
+  Every main branch build checks code quality and security rules and publishes a quality gate.
+
+- **Container scanning (Trivy)**  
+  All built images are scanned. Results are converted to JUnit and surfaced in Azure DevOps test reports.
+
+- **DAST (OWASP ZAP)**  
+  After deployment to staging or production, ZAP runs a targeted scan against the application URL.  
+  Results can be exported and reviewed as part of release validation.
+
+- **Secrets management**  
+  Sensitive data (AWS keys, ACR passwords, SonarQube tokens, etc.) is kept in:
+  - Azure DevOps variable groups.
+  - Secure files.
+  - Optionally Azure Key Vault integrations.
+
+- **IAM & RBAC**  
+  AWS AssumeRole, Terraform, Kubernetes RBAC, and Azure RBAC can be layered on top of this baseline.
+
+---
+
+## 8. How to run this project (high-level)
+
+This repository is designed more as a **reference and interview-ready portfolio** than a one-click deployment, but the high-level steps are:
+
+1. **Clone the repo**
+
+   ```bash
+   git clone https://github.com/<your-account>/banking-ado-k8s-argocd.git
+   cd banking-ado-k8s-argocd
