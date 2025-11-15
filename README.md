@@ -256,16 +256,16 @@ The solution follows modern DevSecOps and GitOps principles to deliver secure, s
 
 
 Developer Commit → Azure DevOps CI
-  → SAST with SonarQube
-  → Build & JUnit test with Maven
-  → Container image build
-  → Trivy image vulnerability scanning
-  → Publish image to Azure Container Registry (ACR)
-  → Trigger CD Pipeline
-      → Helm upgrade on AKS
-      → Commit new image tag to Git repo
-      → Argo CD sync (GitOps)
-      → Traefik exposes application securely
+  SAST with SonarQube                                                                                               
+  Build & JUnit test with Maven                                                                                   
+  Container image build                                                                                         
+  Trivy image vulnerability scanning                                                                              
+  Publish image to Azure Container Registry (ACR)                                                                 
+   Trigger CD Pipeline                                                                                          
+       Helm upgrade on AKS                                                                                       
+       Commit new image tag to Git repo                                                                          
+       Argo CD sync (GitOps)                                                                                       
+       Traefik exposes application securely                                                                      
 
 
 ---
