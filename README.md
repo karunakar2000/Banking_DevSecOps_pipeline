@@ -1,4 +1,4 @@
-# Bank–Cloud DevSecOps on Azure DevOps, AKS & Argo CD
+# DTB Banking–Cloud DevSecOps on Azure DevOps, AKS & Argo CD
 
 This repository shows a banking DevSecOps implementation using **Azure DevOps**, **Kubernetes (AKS)**, **Helm**, and **Argo CD**, backed by **AWS and Azure infrastructure** provisioned with **Terraform**.
 
@@ -11,7 +11,9 @@ The code and pipelines are based on a realistic scenario from a banking client (
 - Deploy and operate the application on AKS using Helm and GitOps with Argo CD.
 - Support multiple environments (Dev, UAT, Prod) with controlled promotion.
 
-The repository is structured to be readable for hiring managers and technical interviewers while still being useful as a reference for real-world work.
+
+The repository follows clean, production aligned layout that reflects how CI/CD, Kubernetes, and GitOps workflows are typically organized within large financial institutions. Every module is intentionally structured to demonstrate real world implementation practices and can be reused or extended for enterprise workloads.
+
 
 ---
 
@@ -240,7 +242,7 @@ Security is integrated across the pipeline, not an afterthought:
 
 ## 8. How to run this project (high-level)
 
-This repository is designed more as a **reference and interview-ready portfolio** than a one-click deployment, but the high-level steps are:
+This project can be deployed end-to-end across Azure and AKS using Azure DevOps pipelines with Helm and Argo CD. The high level steps to get started are:
 
 1. **Clone the repo**
 
