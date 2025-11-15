@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-online-deployment
+  namespace: banking-app
+  labels:
+    app: banking-online
+    app.kubernetes.io/name: banking-online
+    app.kubernetes.io/part-of: dtb-banking-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: banking-online
+  template:
+    metadata:
+      labels:
+        app: banking-online
+        app.kubernetes.io/name: banking-online
+        app.kubernetes.io/part-of: dtb-banking-platform
+    spec:
+      containers:
+        - name: banking-online
+          image: myacr.azurecr.io/banking-online:latest # overridden per env by CI/CD
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: banking-online-config
+          env:
+            # Typical for Spring Boot style services
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      imagePullSecrets: []

@@ -51,9 +51,7 @@ variables:
     value: $(build.BuildId)
 
 stages:
-  # -------------------------------------------------------------------------
   # 1. Check agent tools (Terraform, Packer, Docker, Trivy, etc.)
-  # -------------------------------------------------------------------------
   - stage: Tools_Check
     displayName: "Check Agent & Tooling"
     jobs:
@@ -76,9 +74,7 @@ stages:
               trivy --version || echo "Trivy not installed"
             displayName: "Print tools versions"
 
-  # -------------------------------------------------------------------------
   # 2. SAST with SonarQube (Dev branch only)
-  # -------------------------------------------------------------------------
   - stage: SAST_SonarQube
     displayName: "SAST: SonarQube Analysis"
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/development'))
@@ -119,9 +115,7 @@ stages:
             inputs:
               SonarQube: $(sonarServiceConnection)
 
-  # -------------------------------------------------------------------------
   # 3. Build JAR & publish to JFrog + Azure DevOps artifacts
-  # -------------------------------------------------------------------------
   - stage: Build_And_Publish
     displayName: "Build JAR & Publish Artifacts"
     dependsOn:
@@ -169,9 +163,7 @@ stages:
               ArtifactName: "$(artifactName)"
               publishLocation: "Container"
 
-  # -------------------------------------------------------------------------
   # 4. Optional: upload JAR to Azure Blob and AWS S3 (Dev only)
-  # -------------------------------------------------------------------------
   - stage: Distribute_JAR
     displayName: "Distribute JAR to Azure Blob & S3"
     dependsOn: Build_And_Publish
@@ -217,9 +209,7 @@ stages:
               sourceFolder: "$(Pipeline.Workspace)/$(artifactName)"
               globExpressions: "*.jar"
 
-  # -------------------------------------------------------------------------
   # 5. Docker build, local test & Trivy scan
-  # -------------------------------------------------------------------------
   - stage: Docker_Build_And_Scan
     displayName: "Docker Build & Trivy Scan"
     dependsOn: Build_And_Publish
@@ -288,9 +278,7 @@ stages:
               testRunTitle: "Trivy - High/Critical vulnerabilities"
             condition: always()
 
-  # -------------------------------------------------------------------------
   # 6. Push images to ACR and DockerHub
-  # -------------------------------------------------------------------------
   - stage: Push_Images
     displayName: "Push Docker Image to ACR & DockerHub"
     dependsOn: Docker_Build_And_Scan

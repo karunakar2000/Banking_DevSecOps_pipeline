@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking-online-svc
+  namespace: banking-app
+  labels:
+    app: banking-online
+    app.kubernetes.io/name: banking-online
+    app.kubernetes.io/part-of: dtb-banking-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: banking-online
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

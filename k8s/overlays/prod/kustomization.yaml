@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: prod-banking
+
+commonLabels:
+  env: prod
+  app.kubernetes.io/environment: prod
+
+namePrefix: prod-
+
+# In production you will usually add hardened patches:
+# patchesStrategicMerge:
+#   - deployment-prod-patch.yaml
+#   - ingress-prod-patch.yaml

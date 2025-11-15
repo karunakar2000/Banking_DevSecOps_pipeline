@@ -1,0 +1,36 @@
+# k8s/overlays/prod/values-prod-placeholder.yaml
+# Reference configuration for Production environment
+app:
+  name: banking-online
+  namespace: prod-banking
+  replicaCount: 4
+
+image:
+  repository: myacr.azurecr.io/banking-online
+  tag: prod-approved
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: traefik
+  host: bankingonline.dtbbank.com    # Example external hostname
+  tlsEnabled: true
+  tlsSecretName: bankingonline-prod-tls
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "2"
+    memory: "2Gi"
+
+config:
+  APP_ENV: "prod"
+  LOG_LEVEL: "INFO"
+  SPRING_PROFILES_ACTIVE: "prod"
+
+notes:
+  - "Production environment for DTB Bank customers."
+  - "Changes should be deployed via controlled CI/CD and GitOps pipelines only."
+  - "Scaling and resource limits tuned for real customer traffic."

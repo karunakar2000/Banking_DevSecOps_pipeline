@@ -26,11 +26,9 @@ parameters:
   tfvars_file: ''                  # Optional; default = <env>.tfvars
 
 jobs:
-  # ---------------------------------------------------------------------------
   # 1. terraform_workspace_creation (optional)
-  # ---------------------------------------------------------------------------
   - job: terraform_workspace_creation
-    displayName: "Terraform workspace creation – ${{ parameters.env }}"
+    displayName: "Terraform workspace creation ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_workspace_creation }}', 'YES')
     pool:
       name: LinuxAgentPool
@@ -56,11 +54,9 @@ jobs:
           terraform workspace list
         displayName: 'Terraform workspace creation'
 
-  # ---------------------------------------------------------------------------
   # 2. terraform_init_validate
-  # ---------------------------------------------------------------------------
   - job: terraform_init_validate
-    displayName: "Terraform init & validate – ${{ parameters.env }}"
+    displayName: "Terraform init & validate ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'NO')
     dependsOn: terraform_workspace_creation
     pool:
@@ -86,11 +82,9 @@ jobs:
           terraform validate
         displayName: 'Terraform init & validate (assume role)'
 
-  # ---------------------------------------------------------------------------
   # 3. terraform_init_plan
-  # ---------------------------------------------------------------------------
   - job: terraform_init_plan
-    displayName: "Terraform plan – ${{ parameters.env }}"
+    displayName: "Terraform plan ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'NO')
     dependsOn: terraform_init_validate
     pool:
@@ -131,11 +125,9 @@ jobs:
           echo "Plan generated: plan-${{ parameters.env }}.tfplan"
         displayName: 'Terraform plan (assume role)'
 
-  # ---------------------------------------------------------------------------
   # 4. terraform_apply
-  # ---------------------------------------------------------------------------
   - job: terraform_apply
-    displayName: "Terraform apply – ${{ parameters.env }}"
+    displayName: "Terraform apply ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'NO')
     dependsOn: terraform_init_plan
     pool:
@@ -173,11 +165,9 @@ jobs:
           terraform apply -auto-approve "$PLAN_FILE"
         displayName: 'Terraform apply (assume role)'
 
-  # ---------------------------------------------------------------------------
   # 5. terraform_destroy
-  # ---------------------------------------------------------------------------
   - job: terraform_destroy
-    displayName: "Terraform destroy – ${{ parameters.env }}"
+    displayName: "Terraform destroy ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'YES')
     pool:
       name: LinuxAgentPool

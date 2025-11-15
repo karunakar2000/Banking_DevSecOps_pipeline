@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: banking-online-ingress
+  namespace: banking-app
+  labels:
+    app: banking-online
+    app.kubernetes.io/name: banking-online
+    app.kubernetes.io/part-of: dtb-banking-platform
+  annotations:
+    # For Traefik v2, you can either use this annotation or ingressClassName below
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web"
+    #Uncomment when TLS is configured:
+    # traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
+spec:
+  # For newer clusters you can also use:
+  # ingressClassName: traefik
+  rules:
+    - host: banking-app.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: banking-online-svc
+                port:
+                  number: 80
+  #Example TLS block (to be adjusted per environment)
+  # tls:
+  #   - hosts:
+  #       - banking-app.local
+  #     secretName: banking-online-tls

@@ -1,0 +1,35 @@
+# k8s/overlays/uat/values-uat-placeholder.yaml
+# Reference configuration for UAT / pre-production testing
+app:
+  name: banking-online
+  namespace: uat-banking
+  replicaCount: 3
+
+image:
+  repository: myacr.azurecr.io/banking-online
+  tag: uat-stable
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: traefik
+  host: uat-banking.dtb.internal
+  tlsEnabled: true
+  tlsSecretName: uat-banking-tls
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+config:
+  APP_ENV: "uat"
+  LOG_LEVEL: "INFO"
+  SPRING_PROFILES_ACTIVE: "uat"
+
+notes:
+  - "UAT environment for business and QA validation."
+  - "Configuration should be close to Production, but still flexible."

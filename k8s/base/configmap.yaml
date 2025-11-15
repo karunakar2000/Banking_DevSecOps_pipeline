@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: banking-online-config
+  namespace: banking-app
+  labels:
+    app.kubernetes.io/name: banking-online
+    app.kubernetes.io/part-of: dtb-banking-platform
+data:
+  APP_NAME: "DTB BankingOnline"
+  APP_ENV: "shared-base"
+  LOG_LEVEL: "INFO"
+  SPRING_PROFILES_ACTIVE: "default"
+
+  # Example: database connection placeholders (overridden via secrets in real usage)
+  DB_HOST: "db-placeholder"
+  DB_PORT: "5432"
+  DB_NAME: "bankingonline"

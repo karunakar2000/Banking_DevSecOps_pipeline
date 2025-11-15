@@ -41,9 +41,7 @@ variables:
     value: $(Build.BuildId)
 
 stages:
-  # -------------------------------------------------------------------------
   # 1. Deploy to Dev AKS
-  # -------------------------------------------------------------------------
   - stage: Deploy_Dev
     displayName: "Deploy to AKS - Dev"
     jobs:
@@ -81,9 +79,7 @@ stages:
                   env:
                     KUBECONFIG: /tmp/kubeconfig
 
-  # -------------------------------------------------------------------------
   # 2. Deploy to UAT AKS (with approval)
-  # -------------------------------------------------------------------------
   - stage: Deploy_UAT
     displayName: "Deploy to AKS - UAT"
     dependsOn: Deploy_Dev
@@ -123,9 +119,7 @@ stages:
                   env:
                     KUBECONFIG: /tmp/kubeconfig
 
-  # -------------------------------------------------------------------------
   # 3. Deploy to Prod AKS (with stricter approval)
-  # -------------------------------------------------------------------------
   - stage: Deploy_Prod
     displayName: "Deploy to AKS - Prod"
     dependsOn: Deploy_UAT

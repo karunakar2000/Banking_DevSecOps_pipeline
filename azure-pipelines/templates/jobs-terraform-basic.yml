@@ -21,11 +21,10 @@ parameters:
   tfvars_file: ''          # Optional explicit tfvars file (if empty, uses "<env>.tfvars")
 
 jobs:
-  # ---------------------------------------------------------------------------
+  
   # 1. terraform_version
-  # ---------------------------------------------------------------------------
   - job: terraform_version
-    displayName: "Terraform version check – ${{ parameters.env }}"
+    displayName: "Terraform version check ${{ parameters.env }}"
     pool:
       name: LinuxAgentPool
     steps:
@@ -35,11 +34,8 @@ jobs:
           terraform version
         displayName: 'Show Terraform version'
 
-  # ---------------------------------------------------------------------------
-  # 2. terraform_init_validate
-  # ---------------------------------------------------------------------------
   - job: terraform_init_validate
-    displayName: "Terraform init & validate – ${{ parameters.env }}"
+    displayName: "Terraform init & validate ${{ parameters.env }}"
     dependsOn: terraform_version
     pool:
       name: LinuxAgentPool
@@ -65,11 +61,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
           AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
 
-  # ---------------------------------------------------------------------------
   # 3. terraform_plan
-  # ---------------------------------------------------------------------------
+ 
   - job: terraform_init_plan
-    displayName: "Terraform plan – ${{ parameters.env }}"
+    displayName: "Terraform plan ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'NO')
     dependsOn: terraform_init_validate
     pool:
@@ -108,11 +103,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
           AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
 
-  # ---------------------------------------------------------------------------
+  
   # 4. terraform_apply
-  # ---------------------------------------------------------------------------
   - job: terraform_apply
-    displayName: "Terraform apply – ${{ parameters.env }}"
+    displayName: "Terraform apply ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'NO')
     dependsOn: terraform_init_plan
     pool:
@@ -148,11 +142,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ parameters.aws_access_key }}
           AWS_SECRET_ACCESS_KEY: ${{ parameters.aws_secret_access_key }}
 
-  # ---------------------------------------------------------------------------
+
   # 5. terraform_destroy
-  # ---------------------------------------------------------------------------
   - job: terraform_destroy
-    displayName: "Terraform destroy – ${{ parameters.env }}"
+    displayName: "Terraform destroy ${{ parameters.env }}"
     condition: eq('${{ parameters.terraform_destroy }}', 'YES')
     pool:
       name: LinuxAgentPool

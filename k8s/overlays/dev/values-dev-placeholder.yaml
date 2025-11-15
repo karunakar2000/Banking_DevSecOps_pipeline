@@ -1,0 +1,34 @@
+# k8s/overlays/dev/values-dev-placeholder.yaml
+# Reference configuration for Dev environment (used by pipelines / humans)
+app:
+  name: banking-online
+  namespace: dev-banking
+  replicaCount: 2
+
+image:
+  repository: myacr.azurecr.io/banking-online
+  tag: dev-latest
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: traefik
+  host: dev-banking.dtb.internal
+  tlsEnabled: false   # Set true when certificates are available
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+config:
+  APP_ENV: "dev"
+  LOG_LEVEL: "DEBUG"
+  SPRING_PROFILES_ACTIVE: "dev"
+
+notes:
+  - "Dev environment used for feature verification and CI validation."
+  - "Can tolerate more frequent restarts and experimental changes."
