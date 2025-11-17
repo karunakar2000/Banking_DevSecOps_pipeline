@@ -19,4 +19,3 @@ app:
     name: "DTB Bank"
     environment: "local"
     region: "local-dev"
-

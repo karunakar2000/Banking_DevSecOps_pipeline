@@ -8,4 +8,3 @@ logging:
   level:
     root: INFO
     com.dtb.bankingonline: DEBUG
-

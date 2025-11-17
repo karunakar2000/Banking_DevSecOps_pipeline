@@ -10,4 +10,3 @@ public class DtbBankApplication {
         SpringApplication.run(DtbBankApplication.class, args);
     }
 }
-
