@@ -241,18 +241,21 @@ Security is integrated across the pipeline, not an afterthought:
 ---
 
 This project demonstrates an end-to-end automated deployment platform designed for the DTB Bank Online Banking System.
+
 The solution follows modern DevSecOps and GitOps principles to deliver secure, scalable, and compliant workloads across cloud platforms.
 
-  Capability                        Tools Implemented                                                                          
-| -----------------   -------------------------------------------------------------
-  CI Automation       |          Azure DevOps                                                 
-  CD to AKS           |          Helm + Kubernetes                                 
-  GitOps              |          Argo CD                                                       
-  Security            |          SonarQube (SAST), Trivy (image scan), Vault/JFrog credentials 
-  Containerization    |            Docker                                                        
-  Observability       |          Prometheus + Grafana (later phase)                            
-  Cloud Providers     |          Azure + AWS (artifact storage and DR strategy)                
-  Ingress / Routing   |          Traefik Ingress Controller                                    
+| **Capability**    | **Tools Implemented**                                           |
+| ----------------- | --------------------------------------------------------------- |
+| CI Automation     | Azure DevOps                                                    |
+| CD to AKS         | Helm + Kubernetes                                               |
+| GitOps            | Argo CD                                                         |
+| Security          | SonarQube (SAST), Trivy (image scan), Vault / JFrog credentials |
+| Containerization  | Docker                                                          |
+| Observability     | Prometheus + Grafana (future phase)                             |
+| Cloud Providers   | Azure + AWS (artifact storage & DR strategy)                    |
+| Ingress / Routing | Traefik Ingress Controller                                      |
+
+
 
 ## End-to-End Deployment Workflow
 ### Developer Commit => Azure DevOps CI
