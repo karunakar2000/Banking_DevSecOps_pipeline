@@ -1,0 +1,10 @@
+app:
+  bank:
+    name: "DTB Bank"
+    environment: "prod"
+    region: "multi-cloud-prod"
+
+logging:
+  level:
+    root: WARN
+    com.dtb.bankingonline: INFO

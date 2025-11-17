@@ -1,0 +1,10 @@
+app:
+  bank:
+    name: "DTB Bank"
+    environment: "uat"
+    region: "aws-uat"
+
+logging:
+  level:
+    root: INFO
+    com.dtb.bankingonline: INFO

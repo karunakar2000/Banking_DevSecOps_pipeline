@@ -243,7 +243,7 @@ Security is integrated across the pipeline, not an afterthought:
 This project demonstrates an end-to-end automated deployment platform designed for the DTB Bank Online Banking System.
 The solution follows modern DevSecOps and GitOps principles to deliver secure, scalable, and compliant workloads across cloud platforms.
 
-  Capability                      Tools Implemented                                             
+  Capability                        Tools Implemented                                                                          
 | -----------------   -------------------------------------------------------------
   CI Automation       |          Azure DevOps                                                 
   CD to AKS           |          Helm + Kubernetes                                 
