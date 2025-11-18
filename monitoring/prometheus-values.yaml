@@ -25,19 +25,18 @@ server:
   service:
     type: ClusterIP
 
-  extraScrapeConfigs:
-    # Extra jobs to scrape the banking application
-    - job_name: 'banking-online'
-      metrics_path: /actuator/prometheus
-      scrape_interval: 15s
-      kubernetes_sd_configs:
-        - role: pod
-      relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_label_app]
-          action: keep
-          regex: banking-online
-        - source_labels: [__meta_kubernetes_pod_container_port_name]
-          action: keep
-          regex: http
-
-scrapeConfigs: []
+#   extraScrapeConfigs:
+#     # Extra jobs to scrape the banking application
+#     - job_name: 'banking-online'
+#       metrics_path: /actuator/prometheus
+#       scrape_interval: 15s
+#       kubernetes_sd_configs:
+#         - role: pod
+#       relabel_configs:
+#         - source_labels: [__meta_kubernetes_pod_label_app]
+#           action: keep
+#           regex: banking-online
+#         - source_labels: [__meta_kubernetes_pod_container_port_name]
+#           action: keep
+#           regex: http
+# scrapeConfigs: []
