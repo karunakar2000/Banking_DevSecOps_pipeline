@@ -12,7 +12,7 @@ terraform {
   }
 }
 
-// Provider is defined in provider-assumerole.
+// Provider is defined in provider-assumerole.tf
 
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
