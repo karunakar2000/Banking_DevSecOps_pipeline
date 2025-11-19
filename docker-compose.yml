@@ -21,3 +21,5 @@ services:
       - POSTGRES_PASSWORD=onlinebanking
       - POSTGRES_USER=onlinebanking
       - POSTGRES_DB=onlinebanking
+
+
